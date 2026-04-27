@@ -52,13 +52,13 @@ pip install -r requirements.txt
 ### Option 1: Using the Config File
 Edit `config.yaml` with your preferred settings and run:
 ```bash
-python yt_subtitle_cli.py --config config.yaml
+python -m yt_subtitle_pipeline.cli --config configs/config.yaml
 ```
 
 ### Option 2: Command Line Overrides
 Use the config file but change the search query on the fly:
 ```bash
-python yt_subtitle_cli.py --config config.yaml --query "data science" --limit 10
+python yt_subtitle_pipeline.cli --config configs/config.yaml --query "data science" --limit 10
 ```
 
 ### Option 3: Manual Execution

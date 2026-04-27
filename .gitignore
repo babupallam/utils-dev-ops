@@ -1,2 +1,3 @@
 
 /yt-data-collect/.venv
+*.pyc

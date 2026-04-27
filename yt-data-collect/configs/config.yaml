@@ -1,6 +1,6 @@
 pipeline:
   query: "python tutorial"
-  limit: 5
+  limit: 10
   output_path: "outputs/subtitles.zip"
   links_output_path: "outputs/youtube_links.txt"
 
