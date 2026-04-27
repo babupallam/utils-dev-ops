@@ -16,6 +16,7 @@ class AppConfig:
         limit: Maximum number of videos to process.
         output_path: Final ZIP archive path.
         links_output_path: Text file path for saving selected YouTube links.
+        run_output_dir: Folder created for one search run.
         upload_days: Only include videos uploaded within this number of days.
         max_limit: Maximum allowed search limit.
         sort_by: Metadata field used for sorting search results.
@@ -28,12 +29,14 @@ class AppConfig:
     limit: int
     output_path: Path
     links_output_path: Path
+    run_output_dir: Optional[Path] = None
     upload_days: int = 365
     max_limit: int = 50
     sort_by: str = "view_count"
     language_codes: Tuple[str, ...] = ("en",)
     max_workers: int = 4
     log_level: str = "INFO"
+    
 
     def validate(self) -> None:
         """Validate configuration values.

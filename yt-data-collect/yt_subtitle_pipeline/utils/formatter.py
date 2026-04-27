@@ -54,6 +54,21 @@ class Formatter:
 
         return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
 
+    @staticmethod
+    def build_run_folder_name(query: str, timestamp: str) -> str:
+        """Build safe output folder name using query and timestamp.
+
+        Args:
+            query: Search query.
+            timestamp: Timestamp string.
+
+        Returns:
+            Safe folder name for one search run.
+        """
+
+        safe_query = Formatter.sanitize_filename(query, max_length=80)
+        return f"{safe_query}_{timestamp}"
+    
     @classmethod
     def transcript_to_srt(cls, transcript: Sequence[Dict[str, Any]]) -> str:
         """Convert raw transcript JSON items into valid SRT text.

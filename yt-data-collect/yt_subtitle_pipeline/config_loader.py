@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from typing import Any, Dict, Optional
+import datetime as dt
 
 import yaml
 
 from yt_subtitle_pipeline.exceptions import ConfigFileError
 from yt_subtitle_pipeline.models import AppConfig
+from yt_subtitle_pipeline.utils.formatter import Formatter
 
 
 class ConfigLoader:
@@ -65,13 +67,18 @@ class ConfigLoader:
         query = args.query or pipeline.get("query", "")
         limit = args.limit if args.limit is not None else pipeline.get("limit", 10)
 
+        base_output_dir = Path(pipeline.get("base_output_dir", "outputs"))
+
+        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_folder_name = Formatter.build_run_folder_name(query=query, timestamp=timestamp)
+        run_output_dir = base_output_dir / run_folder_name
+
         output_path = Path(
-            args.output or pipeline.get("output_path", "outputs/subtitles.zip")
+            args.output or run_output_dir / "subtitles.zip"
         )
 
         links_output_path = Path(
-            args.links_output
-            or pipeline.get("links_output_path", "outputs/youtube_links.txt")
+            args.links_output or run_output_dir / "youtube_links.txt"
         )
 
         upload_days = (
@@ -105,6 +112,7 @@ class ConfigLoader:
             limit=int(limit),
             output_path=output_path,
             links_output_path=links_output_path,
+            run_output_dir=run_output_dir,
             upload_days=int(upload_days),
             max_limit=int(max_limit),
             sort_by=str(sort_by),

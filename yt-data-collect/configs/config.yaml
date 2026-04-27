@@ -1,8 +1,7 @@
 pipeline:
   query: "python tutorial"
   limit: 10
-  output_path: "outputs/subtitles.zip"
-  links_output_path: "outputs/youtube_links.txt"
+  base_output_dir: "outputs"
 
 search:
   upload_days: 365

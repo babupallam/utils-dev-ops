@@ -54,6 +54,10 @@ class YTSubtitleEngine:
         if not videos:
             raise SearchServiceError("No videos found for the given query and date range.")
 
+        if self.config.run_output_dir:
+            self.logger.info("Run output folder: %s", self.config.run_output_dir)
+
+            
         FileIO.save_youtube_links(self.config.links_output_path, videos)
         self.logger.info("YouTube links saved: %s", self.config.links_output_path)
 
