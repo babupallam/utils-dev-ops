@@ -1,0 +1,18 @@
+pipeline:
+  query: "python tutorial"
+  limit: 5
+  output_path: "outputs/subtitles.zip"
+  links_output_path: "outputs/youtube_links.txt"
+
+search:
+  upload_days: 365
+  max_limit: 50
+  sort_by: "view_count"
+
+subtitles:
+  languages:
+    - "en"
+  max_workers: 4
+
+logging:
+  level: "INFO"

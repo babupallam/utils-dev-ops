@@ -1,3 +1,55 @@
+#!/usr/bin/env python3
+"""
+yt_subtitle_cli.py
+
+Step 1:
+    Install dependencies:
+
+        pip install -r requirements.txt
+
+Step 2:
+    Create config.yaml:
+
+        pipeline:
+          query: "python tutorial"
+          limit: 10
+          output_path: "outputs/subtitles.zip"
+          links_output_path: "outputs/youtube_links.txt"
+
+        search:
+          upload_days: 365
+          max_limit: 50
+          sort_by: "view_count"
+
+        subtitles:
+          languages:
+            - "en"
+          max_workers: 4
+
+        logging:
+          level: "INFO"
+
+Step 3:
+    Run using config file:
+
+        python yt_subtitle_cli.py --config config.yaml
+
+Step 4:
+    Or override config values from terminal:
+
+        python yt_subtitle_cli.py \
+            --config config.yaml \
+            --query "machine learning" \
+            --limit 5 \
+            --output outputs/ml_subtitles.zip
+
+Step 5:
+    Output files:
+
+        outputs/subtitles.zip
+        outputs/youtube_links.txt
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -12,6 +64,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+import yaml
 import yt_dlp
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -40,16 +93,22 @@ class ArchiveServiceError(YTSubtitleError):
     """Raised when ZIP archive creation fails."""
 
 
+class ConfigFileError(YTSubtitleError):
+    """Raised when the configuration file is invalid or unreadable."""
+
+
 @dataclass(frozen=True)
 class AppConfig:
     """Application configuration.
 
-    Attributes:
+    Args:
         query: Search keywords used to find YouTube videos.
         limit: Maximum number of videos to process.
         output_path: Final ZIP archive path.
+        links_output_path: Text file path for saving selected YouTube links.
         upload_days: Only include videos uploaded within this number of days.
         max_limit: Maximum allowed search limit.
+        sort_by: Metadata field used for sorting search results.
         language_codes: Preferred transcript language codes.
         max_workers: Number of parallel transcript download workers.
         log_level: Logging verbosity level.
@@ -58,8 +117,10 @@ class AppConfig:
     query: str
     limit: int
     output_path: Path
+    links_output_path: Path
     upload_days: int = 365
     max_limit: int = 50
+    sort_by: str = "view_count"
     language_codes: Tuple[str, ...] = ("en",)
     max_workers: int = 4
     log_level: str = "INFO"
@@ -89,15 +150,21 @@ class AppConfig:
         if self.max_workers < 1:
             raise ValueError("max_workers must be at least 1.")
 
+        if self.sort_by not in {"view_count", "upload_date"}:
+            raise ValueError("sort_by must be either 'view_count' or 'upload_date'.")
+
         if not self.output_path.name.lower().endswith(".zip"):
             raise ValueError("Output path must end with .zip.")
+
+        if not self.links_output_path.name.lower().endswith(".txt"):
+            raise ValueError("Links output path must end with .txt.")
 
 
 @dataclass(frozen=True)
 class VideoMetadata:
     """Normalized YouTube video metadata.
 
-    Attributes:
+    Args:
         video_id: YouTube video ID.
         title: Video title.
         url: Full YouTube watch URL.
@@ -110,6 +177,114 @@ class VideoMetadata:
     url: str
     upload_date: Optional[str]
     view_count: int
+
+
+class ConfigLoader:
+    """Load pipeline configuration from YAML file and CLI overrides."""
+
+    @staticmethod
+    def load_yaml(path: Optional[Path]) -> Dict[str, Any]:
+        """Load YAML configuration file.
+
+        Args:
+            path: Path to config.yaml.
+
+        Returns:
+            Configuration dictionary.
+
+        Raises:
+            ConfigFileError: If the file cannot be read or parsed.
+        """
+
+        if path is None:
+            return {}
+
+        if not path.exists():
+            raise ConfigFileError(f"Config file does not exist: {path}")
+
+        try:
+            with path.open("r", encoding="utf-8") as file:
+                data = yaml.safe_load(file) or {}
+        except Exception as exc:
+            raise ConfigFileError(f"Failed to load config file: {exc}") from exc
+
+        if not isinstance(data, dict):
+            raise ConfigFileError("Config file must contain a YAML dictionary.")
+
+        return data
+
+    @staticmethod
+    def build_config(args: argparse.Namespace) -> AppConfig:
+        """Build final AppConfig from config.yaml and CLI overrides.
+
+        Args:
+            args: Parsed command-line arguments.
+
+        Returns:
+            Final validated application configuration.
+        """
+
+        data = ConfigLoader.load_yaml(args.config)
+
+        pipeline = data.get("pipeline", {})
+        search = data.get("search", {})
+        subtitles = data.get("subtitles", {})
+        logging_config = data.get("logging", {})
+
+        query = args.query or pipeline.get("query", "")
+        limit = args.limit if args.limit is not None else pipeline.get("limit", 10)
+
+        output_path = Path(
+            args.output or pipeline.get("output_path", "outputs/subtitles.zip")
+        )
+
+        links_output_path = Path(
+            args.links_output
+            or pipeline.get("links_output_path", "outputs/youtube_links.txt")
+        )
+
+        upload_days = (
+            args.upload_days
+            if args.upload_days is not None
+            else search.get("upload_days", 365)
+        )
+
+        max_limit = search.get("max_limit", 50)
+        sort_by = args.sort_by or search.get("sort_by", "view_count")
+
+        max_workers = (
+            args.max_workers
+            if args.max_workers is not None
+            else subtitles.get("max_workers", 4)
+        )
+
+        yaml_languages = subtitles.get("languages", ["en"])
+        cli_languages = args.language.split(",") if args.language else None
+
+        language_codes = tuple(
+            language.strip()
+            for language in (cli_languages or yaml_languages)
+            if str(language).strip()
+        )
+
+        log_level = args.log_level or logging_config.get("level", "INFO")
+
+        config = AppConfig(
+            query=query,
+            limit=int(limit),
+            output_path=output_path,
+            links_output_path=links_output_path,
+            upload_days=int(upload_days),
+            max_limit=int(max_limit),
+            sort_by=str(sort_by),
+            language_codes=language_codes or ("en",),
+            max_workers=int(max_workers),
+            log_level=str(log_level),
+        )
+
+        config.validate()
+
+        return config
 
 
 class Formatter:
@@ -218,6 +393,29 @@ class FileIO:
         FileIO.ensure_parent_dir(path)
         path.write_text(content, encoding="utf-8")
 
+    @staticmethod
+    def save_youtube_links(path: Path, videos: Sequence[VideoMetadata]) -> None:
+        """Save selected YouTube links to a separate text file.
+
+        Args:
+            path: Destination text file path.
+            videos: Selected video metadata list.
+        """
+
+        FileIO.ensure_parent_dir(path)
+
+        lines: List[str] = []
+
+        for index, video in enumerate(videos, start=1):
+            lines.append(f"{index}. {video.title}")
+            lines.append(f"   URL: {video.url}")
+            lines.append(f"   Video ID: {video.video_id}")
+            lines.append(f"   Upload Date: {video.upload_date or 'unknown'}")
+            lines.append(f"   View Count: {video.view_count}")
+            lines.append("")
+
+        path.write_text("\n".join(lines), encoding="utf-8")
+
 
 class SearchService:
     """Search service that uses yt-dlp to fetch YouTube metadata."""
@@ -231,16 +429,23 @@ class SearchService:
 
         self.logger = logger
 
-    def search(self, query: str, limit: int, upload_days: int) -> List[VideoMetadata]:
+    def search(
+        self,
+        query: str,
+        limit: int,
+        upload_days: int,
+        sort_by: str,
+    ) -> List[VideoMetadata]:
         """Search YouTube videos and return filtered metadata.
 
         Args:
             query: Search keywords.
             limit: Maximum number of videos to return.
             upload_days: Include only videos uploaded within this number of days.
+            sort_by: Sorting field, either view_count or upload_date.
 
         Returns:
-            List of normalized video metadata sorted by view count.
+            List of normalized video metadata.
 
         Raises:
             SearchServiceError: If yt-dlp fails to fetch metadata.
@@ -267,7 +472,7 @@ class SearchService:
 
         entries = raw_result.get("entries", []) if raw_result else []
         cutoff_date = dt.datetime.now(dt.UTC).date() - dt.timedelta(days=upload_days)
-        
+
         videos: List[VideoMetadata] = []
 
         for entry in entries:
@@ -296,7 +501,10 @@ class SearchService:
                 )
             )
 
-        videos.sort(key=lambda item: item.view_count, reverse=True)
+        if sort_by == "upload_date":
+            videos.sort(key=lambda item: item.upload_date or "", reverse=True)
+        else:
+            videos.sort(key=lambda item: item.view_count, reverse=True)
 
         selected = videos[:limit]
 
@@ -355,15 +563,11 @@ class SubtitleService:
         self.logger.debug("Fetching transcript for video: %s", video.url)
 
         try:
-            # Step 1:
-            # New youtube-transcript-api versions use fetch().
             fetched_transcript = self.api.fetch(
                 video.video_id,
                 languages=list(self.language_codes),
             )
 
-            # Step 2:
-            # Convert FetchedTranscript object into normal list[dict].
             transcript = fetched_transcript.to_raw_data()
 
         except (NoTranscriptFound, TranscriptsDisabled) as exc:
@@ -376,9 +580,8 @@ class SubtitleService:
                 f"Failed to fetch transcript for video {video.video_id}: {exc}"
             ) from exc
 
-        # Step 3:
-        # Convert raw transcript JSON into valid .srt text.
         return Formatter.transcript_to_srt(transcript)
+
 
 class ArchiveService:
     """Archive service that manages temporary files and ZIP creation."""
@@ -488,7 +691,7 @@ class ArchiveService:
 
 
 class YTSubtitleEngine:
-    """Core engine that coordinates search, subtitle extraction, and archiving."""
+    """Core engine that coordinates search, subtitle extraction, link saving, and archiving."""
 
     def __init__(self, config: AppConfig) -> None:
         """Initialize application engine.
@@ -518,10 +721,14 @@ class YTSubtitleEngine:
             query=self.config.query,
             limit=self.config.limit,
             upload_days=self.config.upload_days,
+            sort_by=self.config.sort_by,
         )
 
         if not videos:
             raise SearchServiceError("No videos found for the given query and date range.")
+
+        FileIO.save_youtube_links(self.config.links_output_path, videos)
+        self.logger.info("YouTube links saved: %s", self.config.links_output_path)
 
         with ArchiveService(self.config.output_path, self.logger) as archive_service:
             subtitle_files = self._download_transcripts_parallel(
@@ -554,10 +761,7 @@ class YTSubtitleEngine:
         subtitle_files: List[Path] = []
         worker_count = min(self.config.max_workers, len(videos))
 
-        self.logger.info(
-            "Downloading transcripts with %d worker(s).",
-            worker_count,
-        )
+        self.logger.info("Downloading transcripts with %d worker(s).", worker_count)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
             future_to_video = {
@@ -573,12 +777,11 @@ class YTSubtitleEngine:
                     subtitle_file = archive_service.create_subtitle_file(video, srt_content)
                     subtitle_files.append(subtitle_file)
 
-                    self.logger.info(
-                        "Subtitle extracted: %s",
-                        video.title,
-                    )
+                    self.logger.info("Subtitle extracted: %s", video.title)
+
                 except TranscriptNotFoundError as exc:
                     self.logger.warning("%s", exc)
+
                 except Exception as exc:
                     self.logger.exception(
                         "Unexpected failure while processing video %s: %s",
@@ -629,52 +832,73 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to YAML configuration file.",
+    )
+
+    parser.add_argument(
         "--query",
-        required=True,
         type=str,
-        help="YouTube search query.",
+        default=None,
+        help="YouTube search query. Overrides config.yaml.",
     )
 
     parser.add_argument(
         "--limit",
-        required=True,
         type=int,
-        help="Maximum number of videos to process.",
+        default=None,
+        help="Maximum number of videos to process. Overrides config.yaml.",
     )
 
     parser.add_argument(
         "--output",
-        required=True,
         type=Path,
-        help="Output ZIP file path.",
+        default=None,
+        help="Output ZIP file path. Overrides config.yaml.",
+    )
+
+    parser.add_argument(
+        "--links-output",
+        type=Path,
+        default=None,
+        help="Output text file path for YouTube links. Overrides config.yaml.",
     )
 
     parser.add_argument(
         "--upload-days",
-        default=365,
         type=int,
-        help="Only include videos uploaded within the last N days.",
+        default=None,
+        help="Only include videos uploaded within the last N days. Overrides config.yaml.",
+    )
+
+    parser.add_argument(
+        "--sort-by",
+        choices=("view_count", "upload_date"),
+        default=None,
+        help="Sort selected videos by view_count or upload_date. Overrides config.yaml.",
     )
 
     parser.add_argument(
         "--max-workers",
-        default=4,
         type=int,
-        help="Number of parallel transcript workers.",
+        default=None,
+        help="Number of parallel transcript workers. Overrides config.yaml.",
     )
 
     parser.add_argument(
         "--language",
-        default="en",
         type=str,
+        default=None,
         help="Comma-separated transcript language codes, for example: en,en-US.",
     )
 
     parser.add_argument(
         "--log-level",
-        default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
-        help="Logging level.",
+        default=None,
+        help="Logging level. Overrides config.yaml.",
     )
 
     return parser.parse_args()
@@ -687,32 +911,18 @@ def main() -> int:
         Process exit code.
     """
 
-    args = parse_args()
-
-    language_codes = tuple(
-        language.strip()
-        for language in args.language.split(",")
-        if language.strip()
-    )
-
-    config = AppConfig(
-        query=args.query,
-        limit=args.limit,
-        output_path=args.output,
-        upload_days=args.upload_days,
-        language_codes=language_codes or ("en",),
-        max_workers=args.max_workers,
-        log_level=args.log_level,
-    )
-
     try:
+        args = parse_args()
+        config = ConfigLoader.build_config(args)
         engine = YTSubtitleEngine(config)
         engine.run()
         return 0
+
     except YTSubtitleError as exc:
         logging.basicConfig(level=logging.ERROR)
         logging.error("%s", exc)
         return 1
+
     except Exception as exc:
         logging.basicConfig(level=logging.ERROR)
         logging.exception("Unexpected application failure: %s", exc)

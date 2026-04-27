@@ -1,58 +1,89 @@
-# Step 1: Create a project folder
-mkdir yt-subtitle-cli
-cd yt-subtitle-cli
+# YT Data Collect
 
-# Step 2: Create the Python file
-# Save the provided code into a file named:
-# yt_subtitle_cli.py
+A CLI tool for searching YouTube videos and batch-downloading their subtitles as `.srt` files. The results are automatically archived into a ZIP file for easy management.
 
-# Step 3: Create requirements.txt file
-# Add the following lines inside requirements.txt:
+---
 
-yt-dlp>=2024.8.6
-youtube-transcript-api>=0.6.2
+## Project Structure
+Based on the current workspace:
+```text
+yt-data-collect/
+├── .venv/               # Virtual environment
+├── config.yaml          # Configuration settings
+├── README.md            # Documentation
+├── requirements.txt     # Python dependencies
+└── yt_subtitle_cli.py   # Main script
+```
 
-# Step 4: (Recommended) Create a virtual environment
-python -m venv venv
+---
 
-# Step 5: Activate the virtual environment
+## Installation
 
-# On Windows:
-venv\Scripts\activate
+### 1. Navigate to the project
+```bash
+cd yt-data-collect
+```
 
-# On macOS/Linux:
-source venv/bin/activate
+### 2. Set Up Virtual Environment
+If you haven't created the `.venv` folder yet:
+```bash
+python -m venv .venv
+```
 
-# Step 6: Install dependencies
+### 3. Activate the Environment
+* **Windows:**
+    ```bash
+    .venv\Scripts\activate
+    ```
+* **macOS/Linux:**
+    ```bash
+    source .venv/bin/activate
+    ```
+
+### 4. Install Dependencies
+```bash
 pip install -r requirements.txt
+```
 
-# Step 7: Run the application
+---
 
-python yt_subtitle_cli.py --query "python tutorial" --limit 5 --output output.zip
+## Usage
 
-# Step 8: Example with more options
+### Option 1: Using the Config File
+Edit `config.yaml` with your preferred settings and run:
+```bash
+python yt_subtitle_cli.py --config config.yaml
+```
 
+### Option 2: Command Line Overrides
+Use the config file but change the search query on the fly:
+```bash
+python yt_subtitle_cli.py --config config.yaml --query "data science" --limit 10
+```
+
+### Option 3: Manual Execution
+Run the script with full parameters bypassing the config file:
+```bash
 python yt_subtitle_cli.py \
-    --query "machine learning" \
-    --limit 10 \
-    --output subtitles.zip \
-    --upload-days 365 \
-    --max-workers 4 \
+    --query "python tutorials" \
+    --limit 5 \
+    --output subtitles_bundle.zip \
     --language en \
     --log-level INFO
+```
 
-# Step 9: Output
-# After execution:
-# - A ZIP file (e.g., subtitles.zip) will be created
-# - It will contain .srt subtitle files for each video
+---
 
-# Step 10: If command not found issues occur
+## Troubleshooting
 
-# Check Python version
-python --version
+* **Permissions:** Ensure you have write access to the folder so the script can create the ZIP output.
+* **Module Not Found:** Ensure your terminal shows `(.venv)` at the start of the prompt. If not, repeat the **Activate** step.
+* **Python Version:** This script requires Python 3.7+. Check yours with `python --version`.
 
-# If multiple Python versions exist, try:
-python3 yt_subtitle_cli.py --query "AI" --limit 3 --output test.zip
+---
 
-# Step 11: Deactivate virtual environment (optional)
+## Cleanup
+To exit the virtual environment:
+```bash
 deactivate
+```
