@@ -36,7 +36,9 @@ class AppConfig:
     language_codes: Tuple[str, ...] = ("en",)
     max_workers: int = 4
     log_level: str = "INFO"
-    
+    request_delay_seconds: float = 8.0
+    retry_count: int = 3
+    retry_backoff_seconds: float = 10.0
 
     def validate(self) -> None:
         """Validate configuration values.
@@ -57,6 +59,15 @@ class AppConfig:
                 f"Requested limit {self.limit} exceeds max allowed limit {self.max_limit}."
             )
 
+        if self.request_delay_seconds < 0:
+            raise ValueError("request_delay_seconds cannot be negative.")
+
+        if self.retry_count < 0:
+            raise ValueError("retry_count cannot be negative.")
+
+        if self.retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds cannot be negative.")
+        
         if self.upload_days < 1:
             raise ValueError("upload_days must be at least 1.")
 

@@ -93,8 +93,12 @@ class ConfigLoader:
         max_workers = (
             args.max_workers
             if args.max_workers is not None
-            else subtitles.get("max_workers", 4)
+            else subtitles.get("max_workers", 1)
         )
+
+        request_delay_seconds = subtitles.get("request_delay_seconds", 8)
+        retry_count = subtitles.get("retry_count", 3)
+        retry_backoff_seconds = subtitles.get("retry_backoff_seconds", 10)
 
         yaml_languages = subtitles.get("languages", ["en"])
         cli_languages = args.language.split(",") if args.language else None
@@ -119,6 +123,9 @@ class ConfigLoader:
             language_codes=language_codes or ("en",),
             max_workers=int(max_workers),
             log_level=str(log_level),
+            request_delay_seconds=float(request_delay_seconds),
+            retry_count=int(retry_count),
+            retry_backoff_seconds=float(retry_backoff_seconds),
         )
 
         config.validate()

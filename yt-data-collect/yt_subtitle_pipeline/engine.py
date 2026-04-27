@@ -32,8 +32,14 @@ class YTSubtitleEngine:
         self.config = config
         self.logger = build_logger(config.log_level)
         self.search_service = SearchService(self.logger)
-        self.subtitle_service = SubtitleService(config.language_codes, self.logger)
-
+        self.subtitle_service = SubtitleService(
+            language_codes=config.language_codes,
+            logger=self.logger,
+            request_delay_seconds=config.request_delay_seconds,
+            retry_count=config.retry_count,
+            retry_backoff_seconds=config.retry_backoff_seconds,
+        )
+        
     def run(self) -> Path:
         """Run the complete subtitle extraction workflow.
 
@@ -57,7 +63,7 @@ class YTSubtitleEngine:
         if self.config.run_output_dir:
             self.logger.info("Run output folder: %s", self.config.run_output_dir)
 
-            
+
         FileIO.save_youtube_links(self.config.links_output_path, videos)
         self.logger.info("YouTube links saved: %s", self.config.links_output_path)
 

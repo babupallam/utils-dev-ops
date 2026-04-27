@@ -1,6 +1,6 @@
 pipeline:
   query: "python tutorial"
-  limit: 10
+  limit: 5
   base_output_dir: "outputs"
 
 search:
@@ -11,7 +11,21 @@ search:
 subtitles:
   languages:
     - "en"
-  max_workers: 4
+
+  # Step 1:
+  # Keep this low.
+  # 1 is safest because transcript requests happen one by one.
+  max_workers: 1
+
+  # Step 2:
+  # Delay before each transcript request.
+  # Increase this if YouTube still blocks requests.
+  request_delay_seconds: 8
+
+  # Step 3:
+  # Retry failed transcript requests slowly.
+  retry_count: 3
+  retry_backoff_seconds: 10
 
 logging:
   level: "INFO"
