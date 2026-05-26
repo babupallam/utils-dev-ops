@@ -1,0 +1,24 @@
+{
+  "name": "linkedin-job-scraper",
+  "version": "1.0.0",
+  "description": "Modular Playwright TypeScript app for LinkedIn job scraping",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npx ts-node src/index.ts",
+    "scrape": "npx ts-node src/index.ts",
+    "dev": "npx ts-node-dev src/index.ts"
+  },
+  "keywords": ["linkedin", "playwright", "scraper", "jobs"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.0",
+    "playwright": "^1.42.0",
+    "ts-node": "^10.9.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.0"
+  }
+}
